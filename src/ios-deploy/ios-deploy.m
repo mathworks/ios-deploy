@@ -77,8 +77,8 @@ int AMDeviceGetInterfaceType(struct am_device *device);
 bool found_device = false, debug = false, verbose = false, unbuffered = false, nostart = false, detect_only = false, install = true, uninstall = false, no_wifi = false;
 bool command_only = false;
 char *command = NULL;
-char *target_filename = NULL;
-char *upload_pathname = NULL;
+char const*target_filename = NULL;
+char const*upload_pathname = NULL;
 char *bundle_id = NULL;
 bool interactive = true;
 bool justlaunch = false;
@@ -87,7 +87,7 @@ char *device_id = NULL;
 char *args = NULL;
 char *list_root = NULL;
 int _timeout = 0;
-int port = 0;	// 0 means "dynamically assigned"
+int port = 0;    // 0 means "dynamically assigned"
 CFStringRef last_path = NULL;
 service_conn_t gdbfd;
 pid_t parent = 0;
@@ -123,8 +123,8 @@ void on_error(NSString* format, ...)
     NSString* str = [[[NSString alloc] initWithFormat:format arguments:valist] autorelease];
     va_end(valist);
 
-    NSLog(@"[ !! ] %@", str);    
-    
+    NSLog(@"[ !! ] %@", str);
+
     exit(exitcode_error);
 }
 
@@ -136,7 +136,7 @@ void on_sys_error(NSString* format, ...) {
     va_start(valist, format);
     NSString* str = [[[NSString alloc] initWithFormat:format arguments:valist] autorelease];
     va_end(valist);
-    
+
     on_error(@"%@ : %@", str, [NSString stringWithUTF8String:errstr]);
 }
 
@@ -148,25 +148,25 @@ void __NSLogOut(NSString* format, va_list valist) {
 void NSLogOut(NSString* format, ...) {
     va_list valist;
     va_start(valist, format);
-	__NSLogOut(format, valist);
+    __NSLogOut(format, valist);
     va_end(valist);
 }
 
 void NSLogVerbose(NSString* format, ...) {
-	if (verbose) {
-		va_list valist;
-		va_start(valist, format);
-		__NSLogOut(format, valist);
-		va_end(valist);
-	}
+    if (verbose) {
+        va_list valist;
+        va_start(valist, format);
+        __NSLogOut(format, valist);
+        va_end(valist);
+    }
 }
 
 
 BOOL mkdirp(NSString* path) {
     NSError* error = nil;
-    BOOL success = [[NSFileManager defaultManager] createDirectoryAtPath:path 
-                                             withIntermediateDirectories:YES 
-                                                              attributes:nil 
+    BOOL success = [[NSFileManager defaultManager] createDirectoryAtPath:path
+                                             withIntermediateDirectories:YES
+                                                              attributes:nil
                                                                    error:&error];
     return success;
 }
@@ -331,12 +331,24 @@ const CFStringRef get_device_hardware_name(const AMDeviceRef device) {
     GET_FRIENDLY_MODEL_NAME(model, "P101AP", "iPad 4")
     GET_FRIENDLY_MODEL_NAME(model, "P102AP", "iPad 4 (GSM)")
     GET_FRIENDLY_MODEL_NAME(model, "P103AP", "iPad 4 (CDMA)")
+    GET_FRIENDLY_MODEL_NAME(model, "J71AP",  "iPad Air")
+    GET_FRIENDLY_MODEL_NAME(model, "J72AP",  "iPad Air (GSM)")
+    GET_FRIENDLY_MODEL_NAME(model, "J73AP",  "iPad Air (CDMA)")
+    GET_FRIENDLY_MODEL_NAME(model, "J81AP",  "iPad Air 2")
+    GET_FRIENDLY_MODEL_NAME(model, "J82AP",  "iPad Air 2 (GSM)")
+    GET_FRIENDLY_MODEL_NAME(model, "J83AP",  "iPad Air 2 (CDMA)")
 
     // iPad Mini
 
     GET_FRIENDLY_MODEL_NAME(model, "P105AP", "iPad mini")
     GET_FRIENDLY_MODEL_NAME(model, "P106AP", "iPad mini (GSM)")
     GET_FRIENDLY_MODEL_NAME(model, "P107AP", "iPad mini (CDMA)")
+    GET_FRIENDLY_MODEL_NAME(model, "J85AP",  "iPad mini 2")
+    GET_FRIENDLY_MODEL_NAME(model, "J86AP",  "iPad mini 2 (GSM)")
+    GET_FRIENDLY_MODEL_NAME(model, "J87AP",  "iPad mini 2 (CDMA)")
+    GET_FRIENDLY_MODEL_NAME(model, "J85MAP", "iPad mini 3")
+    GET_FRIENDLY_MODEL_NAME(model, "J86MAP", "iPad mini 3 (GSM)")
+    GET_FRIENDLY_MODEL_NAME(model, "J87MAP", "iPad mini 3 (CDMA)")
 
     // Apple TV
 
@@ -361,11 +373,11 @@ const CFStringRef get_device_hardware_name(const AMDeviceRef device) {
     GET_FRIENDLY_MODEL_NAME(model, "N53AP", "iPhone 5s (Global/CDMA)")
     GET_FRIENDLY_MODEL_NAME(model, "N61AP", "iPhone 6 (GSM)")
     GET_FRIENDLY_MODEL_NAME(model, "N56AP", "iPhone 6 Plus")
-
-	GET_FRIENDLY_MODEL_NAME(model, "N71mAP", "iPhone 6s")
-	GET_FRIENDLY_MODEL_NAME(model, "N71AP", "iPhone 6s")
-	GET_FRIENDLY_MODEL_NAME(model, "N66AP", "iPhone 6s Plus")
-	GET_FRIENDLY_MODEL_NAME(model, "N66mAP", "iPhone 6s Plus")
+    GET_FRIENDLY_MODEL_NAME(model, "N71mAP", "iPhone 6s")
+    GET_FRIENDLY_MODEL_NAME(model, "N71AP", "iPhone 6s")
+    GET_FRIENDLY_MODEL_NAME(model, "N66AP", "iPhone 6s Plus")
+    GET_FRIENDLY_MODEL_NAME(model, "N66mAP", "iPhone 6s Plus")
+    GET_FRIENDLY_MODEL_NAME(model, "N69AP", "iPhone SE")
 
     return model;
 }
@@ -398,8 +410,8 @@ CFStringRef get_device_full_name(const AMDeviceRef device) {
     device_name = AMDeviceCopyValue(device, 0, CFSTR("DeviceName")),
     model_name = get_device_hardware_name(device);
 
-	NSLogVerbose(@"Device Name: %@", device_name);
-	NSLogVerbose(@"Model Name: %@", model_name);
+    NSLogVerbose(@"Device Name: %@", device_name);
+    NSLogVerbose(@"Model Name: %@", model_name);
 
     if(device_name != NULL && model_name != NULL)
     {
@@ -537,9 +549,9 @@ void mount_developer_image(AMDeviceRef device) {
     CFStringRef image_path = copy_developer_disk_image_path(device);
     CFStringRef sig_path = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.signature"), image_path);
 
-	NSLogVerbose(@"Device support path: %@", ds_path);
-	NSLogVerbose(@"Developer disk image: %@", image_path);
-	CFRelease(ds_path);
+    NSLogVerbose(@"Device support path: %@", ds_path);
+    NSLogVerbose(@"Developer disk image: %@", image_path);
+    CFRelease(ds_path);
 
     FILE* sig = fopen(CFStringGetCStringPtr(sig_path, kCFStringEncodingMacRoman), "rb");
     void *sig_buf = malloc(128);
@@ -600,7 +612,7 @@ CFURLRef copy_device_app_url(AMDeviceRef device, CFStringRef identifier) {
     CFDictionaryRef result = nil;
 
     NSArray *a = [NSArray arrayWithObjects:
-                  @"CFBundleIdentifier",			// absolute must
+                  @"CFBundleIdentifier",            // absolute must
                   @"ApplicationDSID",
                   @"ApplicationType",
                   @"CFBundleExecutable",
@@ -625,7 +637,7 @@ CFURLRef copy_device_app_url(AMDeviceRef device, CFStringRef identifier) {
                   nil];
 
     NSDictionary *optionsDict = [NSDictionary dictionaryWithObject:a forKey:@"ReturnAttributes"];
-	CFDictionaryRef options = (CFDictionaryRef)optionsDict;
+    CFDictionaryRef options = (CFDictionaryRef)optionsDict;
 
     check_error(AMDeviceLookupApplications(device, options, &result));
 
@@ -644,9 +656,9 @@ CFStringRef copy_disk_app_identifier(CFURLRef disk_app_url) {
     CFURLRef plist_url = CFURLCreateCopyAppendingPathComponent(NULL, disk_app_url, CFSTR("Info.plist"), false);
     CFReadStreamRef plist_stream = CFReadStreamCreateWithFile(NULL, plist_url);
     if (!CFReadStreamOpen(plist_stream)) {
-    	on_error(@"Cannot read Info.plist file: %@", plist_url);
+      on_error(@"Cannot read Info.plist file: %@", plist_url);
     }
-	
+
     CFPropertyListRef plist = CFPropertyListCreateWithStream(NULL, plist_stream, 0, kCFPropertyListImmutable, NULL, NULL);
     CFStringRef bundle_identifier = CFRetain(CFDictionaryGetValue(plist, CFSTR("CFBundleIdentifier")));
     CFReadStreamClose(plist_stream);
@@ -723,14 +735,14 @@ void write_lldb_prep_cmds(AMDeviceRef device, CFURLRef disk_app_url) {
     CFStringFindAndReplace(cmds, CFSTR("{disk_container}"), disk_container_path, range, 0);
 
     NSString* python_file_path = [NSString stringWithFormat:@"/tmp/%@/fruitstrap_", tmpUUID];
-	mkdirp(python_file_path);
-	
+    mkdirp(python_file_path);
+
     NSString* python_command = @"fruitstrap_";
     if(device_id != NULL) {
-		python_file_path = [python_file_path stringByAppendingString:[NSString stringWithUTF8String:device_id]];
-		python_command = [python_command stringByAppendingString:[NSString stringWithUTF8String:device_id]];
+        python_file_path = [python_file_path stringByAppendingString:[NSString stringWithUTF8String:device_id]];
+        python_command = [python_command stringByAppendingString:[NSString stringWithUTF8String:device_id]];
     }
-	python_file_path = [python_file_path stringByAppendingString:@".py"];
+    python_file_path = [python_file_path stringByAppendingString:@".py"];
 
     CFStringFindAndReplace(cmds, CFSTR("{python_command}"), (CFStringRef)python_command, range, 0);
     range.length = CFStringGetLength(cmds);
@@ -741,7 +753,7 @@ void write_lldb_prep_cmds(AMDeviceRef device, CFURLRef disk_app_url) {
     NSString* prep_cmds_path = [NSString stringWithFormat:PREP_CMDS_PATH, tmpUUID];
     if(device_id != NULL) {
         prep_cmds_path = [prep_cmds_path stringByAppendingString:[NSString stringWithUTF8String:device_id]];
-	}
+    }
     FILE *out = fopen([prep_cmds_path UTF8String], "w");
     fwrite(CFDataGetBytePtr(cmds_data), CFDataGetLength(cmds_data), 1, out);
     // Write additional commands based on mode we're running in
@@ -994,12 +1006,12 @@ void launch_debugger(AMDeviceRef device, CFURLRef url) {
             setup_dummy_pipe_on_stdin(pfd);
 
         NSString* lldb_shell;
-		NSString* prep_cmds = [NSString stringWithFormat:PREP_CMDS_PATH, tmpUUID];
-		lldb_shell = [NSString stringWithFormat:LLDB_SHELL, prep_cmds];
-		
+        NSString* prep_cmds = [NSString stringWithFormat:PREP_CMDS_PATH, tmpUUID];
+        lldb_shell = [NSString stringWithFormat:LLDB_SHELL, prep_cmds];
+
         if(device_id != NULL) {
-			lldb_shell = [lldb_shell stringByAppendingString: [NSString stringWithUTF8String:device_id]];
-		}
+            lldb_shell = [lldb_shell stringByAppendingString: [NSString stringWithUTF8String:device_id]];
+        }
 
         int status = system([lldb_shell UTF8String]); // launch lldb
         if (status == -1)
@@ -1035,10 +1047,10 @@ void launch_debugger_and_exit(AMDeviceRef device, CFURLRef url) {
 
 
         NSString* prep_cmds = [NSString stringWithFormat:PREP_CMDS_PATH, tmpUUID];
-		NSString* lldb_shell = [NSString stringWithFormat:LLDB_SHELL, prep_cmds];
+        NSString* lldb_shell = [NSString stringWithFormat:LLDB_SHELL, prep_cmds];
         if(device_id != NULL) {
-			lldb_shell = [lldb_shell stringByAppendingString:[NSString stringWithUTF8String:device_id]];
-		}
+            lldb_shell = [lldb_shell stringByAppendingString:[NSString stringWithUTF8String:device_id]];
+        }
 
         int status = system([lldb_shell UTF8String]); // launch lldb
         if (status == -1)
@@ -1123,15 +1135,15 @@ void read_dir(service_conn_t afcFd, afc_connection* afc_conn_p, const char* dir,
         }
     }
     AFCKeyValueClose(afc_dict_p);
-	
-	if (not_dir) {
-	    NSLogOut(@"%@", [NSString stringWithUTF8String:dir]);
-	} else {
-		NSLogOut(@"%@/", [NSString stringWithUTF8String:dir]);
-	}
 
     if (not_dir) {
-    	if (callback) (*callback)(afc_conn_p, dir, not_dir);
+        NSLogOut(@"%@", [NSString stringWithUTF8String:dir]);
+    } else {
+        NSLogOut(@"%@/", [NSString stringWithUTF8String:dir]);
+    }
+
+    if (not_dir) {
+        if (callback) (*callback)(afc_conn_p, dir, not_dir);
         return;
     }
 
@@ -1193,9 +1205,9 @@ service_conn_t start_house_arrest_service(AMDeviceRef device) {
     return houseFd;
 }
 
-char* get_filename_from_path(char* path)
+char const* get_filename_from_path(char const* path)
 {
-    char *ptr = path + strlen(path);
+    char const*ptr = path + strlen(path);
     while (ptr > path)
     {
         if (*ptr == '/')
@@ -1209,7 +1221,7 @@ char* get_filename_from_path(char* path)
     return ptr+1;
 }
 
-void* read_file_to_memory(char * path, size_t* file_size)
+void* read_file_to_memory(char const * path, size_t* file_size)
 {
     struct stat buf;
     int err = stat(path, &buf);
@@ -1267,7 +1279,7 @@ int app_exists(AMDeviceRef device)
     check_error(AMDeviceStopSession(device));
     check_error(AMDeviceDisconnect(device));
     if (appExists)
-    	return 0;
+        return 0;
     return -1;
 }
 
@@ -1277,13 +1289,13 @@ void list_bundle_id(AMDeviceRef device)
     assert(AMDeviceIsPaired(device));
     check_error(AMDeviceValidatePairing(device));
     check_error(AMDeviceStartSession(device));
-    
+
     NSArray *a = [NSArray arrayWithObjects:@"CFBundleIdentifier", nil];
     NSDictionary *optionsDict = [NSDictionary dictionaryWithObject:a forKey:@"ReturnAttributes"];
     CFDictionaryRef options = (CFDictionaryRef)optionsDict;
     CFDictionaryRef result = nil;
     check_error(AMDeviceLookupApplications(device, options, &result));
-    
+
     CFIndex count;
     count = CFDictionaryGetCount(result);
     const void *keys[count];
@@ -1291,7 +1303,7 @@ void list_bundle_id(AMDeviceRef device)
     for(int i = 0; i < count; ++i) {
         NSLogOut(@"%@", (CFStringRef)keys[i]);
     }
-    
+
     check_error(AMDeviceStopSession(device));
     check_error(AMDeviceDisconnect(device));
 }
@@ -1305,35 +1317,35 @@ void copy_file_callback(afc_connection* afc_conn_p, const char *name,int file)
     if (*local_name=='\0') return;
 
     if (file) {
-	afc_file_ref fref;
-	int err = AFCFileRefOpen(afc_conn_p,name,1,&fref);
+    afc_file_ref fref;
+    int err = AFCFileRefOpen(afc_conn_p,name,1,&fref);
 
-	if (err) {
-	    fprintf(stderr,"AFCFileRefOpen(\"%s\") failed: %d\n",name,err);
-	    return;
-	}
+    if (err) {
+        fprintf(stderr,"AFCFileRefOpen(\"%s\") failed: %d\n",name,err);
+        return;
+    }
 
-	FILE *fp = fopen(local_name,"w");
+    FILE *fp = fopen(local_name,"w");
 
-	if (fp==NULL) {
-	    fprintf(stderr,"fopen(\"%s\",\"w\") failer: %s\n",local_name,strerror(errno));
-	    AFCFileRefClose(afc_conn_p,fref);
-	    return;
-	}
+    if (fp==NULL) {
+        fprintf(stderr,"fopen(\"%s\",\"w\") failer: %s\n",local_name,strerror(errno));
+        AFCFileRefClose(afc_conn_p,fref);
+        return;
+    }
 
-	char buf[4096];
-	size_t sz=sizeof(buf);
+    char buf[4096];
+    size_t sz=sizeof(buf);
 
-	while (AFCFileRefRead(afc_conn_p,fref,buf,&sz)==0 && sz) {
-	    fwrite(buf,sz,1,fp);
-	    sz = sizeof(buf);
-	}
+    while (AFCFileRefRead(afc_conn_p,fref,buf,&sz)==0 && sz) {
+        fwrite(buf,sz,1,fp);
+        sz = sizeof(buf);
+    }
 
-	AFCFileRefClose(afc_conn_p,fref);
-	fclose(fp);
+    AFCFileRefClose(afc_conn_p,fref);
+    fclose(fp);
     } else {
-	if (mkdir(local_name,0777) && errno!=EEXIST)
-	    fprintf(stderr,"mkdir(\"%s\") failed: %s\n",local_name,strerror(errno));
+    if (mkdir(local_name,0777) && errno!=EEXIST)
+        fprintf(stderr,"mkdir(\"%s\") failed: %s\n",local_name,strerror(errno));
     }
 }
 
@@ -1342,29 +1354,29 @@ void download_tree(AMDeviceRef device)
     service_conn_t houseFd = start_house_arrest_service(device);
     afc_connection* afc_conn_p = NULL;
     char *dirname = NULL;
-    
-	list_root = list_root? list_root : "/";
-	target_filename = target_filename? target_filename : ".";
-	 
+
+    list_root = list_root? list_root : "/";
+    target_filename = target_filename? target_filename : ".";
+
     NSString* targetPath = [NSString pathWithComponents:@[ @(target_filename), @(list_root)] ];
     mkdirp([targetPath stringByDeletingLastPathComponent]);
 
     if (AFCConnectionOpen(houseFd, 0, &afc_conn_p) == 0)  do {
 
-	if (target_filename) {
-	    dirname = strdup(target_filename);
-	    mkdirp(@(dirname));
-	    if (mkdir(dirname,0777) && errno!=EEXIST) {
-		fprintf(stderr,"mkdir(\"%s\") failed: %s\n",dirname,strerror(errno));
-		break;
-	    }
-	    if (chdir(dirname)) {
-		fprintf(stderr,"chdir(\"%s\") failed: %s\n",dirname,strerror(errno));
-		break;
-	    }
-	}
+    if (target_filename) {
+        dirname = strdup(target_filename);
+        mkdirp(@(dirname));
+        if (mkdir(dirname,0777) && errno!=EEXIST) {
+        fprintf(stderr,"mkdir(\"%s\") failed: %s\n",dirname,strerror(errno));
+        break;
+        }
+        if (chdir(dirname)) {
+        fprintf(stderr,"chdir(\"%s\") failed: %s\n",dirname,strerror(errno));
+        break;
+        }
+    }
 
-	read_dir(houseFd, afc_conn_p, list_root, copy_file_callback);
+    read_dir(houseFd, afc_conn_p, list_root, copy_file_callback);
 
     } while(0);
 
@@ -1372,10 +1384,12 @@ void download_tree(AMDeviceRef device)
     if (afc_conn_p) AFCConnectionClose(afc_conn_p);
 }
 
-void upload_file(AMDeviceRef device) {
-    service_conn_t houseFd = start_house_arrest_service(device);
+void upload_dir(AMDeviceRef device, afc_connection* afc_conn_p, NSString* source, NSString* destination);
+void upload_single_file(AMDeviceRef device, afc_connection* afc_conn_p, NSString* sourcePath, NSString* destinationPath);
 
-    afc_file_ref file_ref;
+void upload_file(AMDeviceRef device)
+{
+    service_conn_t houseFd = start_house_arrest_service(device);
 
     afc_connection afc_conn;
     afc_connection* afc_conn_p = &afc_conn;
@@ -1388,42 +1402,80 @@ void upload_file(AMDeviceRef device) {
         target_filename = get_filename_from_path(upload_pathname);
     }
 
+    NSString* sourcePath = [NSString stringWithUTF8String: upload_pathname];
+    NSString* destinationPath = [NSString stringWithUTF8String: target_filename];
+
+    BOOL isDir;
+    bool exists = [[NSFileManager defaultManager] fileExistsAtPath: sourcePath isDirectory: &isDir];
+    if (!exists)
+    {
+        on_error(@"Could not find file: %s", upload_pathname);
+    }
+    else if (isDir)
+    {
+        upload_dir(device, afc_conn_p, sourcePath, destinationPath);
+    }
+    else
+    {
+        upload_single_file(device, afc_conn_p, sourcePath, destinationPath);
+    }
+    assert(AFCConnectionClose(afc_conn_p) == 0);
+}
+
+void upload_single_file(AMDeviceRef device, afc_connection* afc_conn_p, NSString* sourcePath, NSString* destinationPath) {
+
+    afc_file_ref file_ref;
+
+    //        read_dir(houseFd, NULL, "/", NULL);
+
     size_t file_size;
-    void* file_content = read_file_to_memory(upload_pathname, &file_size);
+    void* file_content = read_file_to_memory([sourcePath fileSystemRepresentation], &file_size);
 
     if (!file_content)
     {
-        on_error(@"Could not open file: %@", [NSString stringWithUTF8String:upload_pathname]);
+        on_error(@"Could not open file: %@", sourcePath);
     }
 
     // Make sure the directory was created
     {
-        char *dirpath = strdup(target_filename);
-        char *c = dirpath, *lastSlash = dirpath;
-        while(*c) {
-            if(*c == '/') {
-                lastSlash = c;
-            }
-            c++;
-        }
-        *lastSlash = '\0';
-        check_error(AFCDirectoryCreate(afc_conn_p, dirpath));
+        NSString *dirpath = [destinationPath stringByDeletingLastPathComponent];
+        check_error(AFCDirectoryCreate(afc_conn_p, [dirpath fileSystemRepresentation]));
     }
 
 
-    int ret = AFCFileRefOpen(afc_conn_p, target_filename, 3, &file_ref);
+    int ret = AFCFileRefOpen(afc_conn_p, [destinationPath fileSystemRepresentation], 3, &file_ref);
     if (ret == 0x000a) {
-        on_error(@"Cannot write to %@. Permission error.", [NSString stringWithUTF8String:target_filename]);
+        on_error(@"Cannot write to %@. Permission error.", destinationPath);
     }
     if (ret == 0x0009) {
-        on_error(@"Target %@ is a directory.", [NSString stringWithUTF8String:target_filename]);
+        on_error(@"Target %@ is a directory.", destinationPath);
     }
     assert(ret == 0);
     assert(AFCFileRefWrite(afc_conn_p, file_ref, file_content, file_size) == 0);
     assert(AFCFileRefClose(afc_conn_p, file_ref) == 0);
-    assert(AFCConnectionClose(afc_conn_p) == 0);
 
     free(file_content);
+}
+
+void upload_dir(AMDeviceRef device, afc_connection* afc_conn_p, NSString* source, NSString* destination)
+{
+    check_error(AFCDirectoryCreate(afc_conn_p, [destination fileSystemRepresentation]));
+    destination = [destination copy];
+    for (NSString* item in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: source error: nil])
+    {
+        NSString* sourcePath = [source stringByAppendingPathComponent: item];
+        NSString* destinationPath = [destination stringByAppendingPathComponent: item];
+        BOOL isDir;
+        [[NSFileManager defaultManager] fileExistsAtPath: sourcePath isDirectory: &isDir];
+        if (isDir)
+        {
+            upload_dir(device, afc_conn_p, sourcePath, destinationPath);
+        }
+        else
+        {
+            upload_single_file(device, afc_conn_p, sourcePath, destinationPath);
+        }
+    }
 }
 
 void make_directory(AMDeviceRef device) {
@@ -1483,12 +1535,12 @@ void uninstall_app(AMDeviceRef device) {
 }
 
 void handle_device(AMDeviceRef device) {
-	NSLogVerbose(@"Already found device? %d", found_device);
+    NSLogVerbose(@"Already found device? %d", found_device);
 
     CFStringRef found_device_id = AMDeviceCopyDeviceIdentifier(device),
                 device_full_name = get_device_full_name(device),
                 device_interface_name = get_device_interface_name(device);
-                
+
     if (detect_only) {
 
         NSLogOut(@"[....] Found %@ connected through %@.", device_full_name, device_interface_name);
@@ -1519,7 +1571,7 @@ void handle_device(AMDeviceRef device) {
         } else if (strcmp("upload", command) == 0) {
             upload_file(device);
         } else if (strcmp("download", command) == 0) {
-            download_tree(device);    
+            download_tree(device);
         } else if (strcmp("mkdir", command) == 0) {
             make_directory(device);
         } else if (strcmp("rm", command) == 0) {
@@ -1641,17 +1693,17 @@ void device_callback(struct am_device_notification_callback_info *info, void *ar
     switch (info->msg) {
         case ADNCI_MSG_CONNECTED:
             if(device_id != NULL || !debug || AMDeviceGetInterfaceType(info->dev) != 2) {
-				if (no_wifi && AMDeviceGetInterfaceType(info->dev) == 2)
-				{
-				    NSLogVerbose(@"Skipping wifi device (type: %d)", AMDeviceGetInterfaceType(info->dev));
-				}
-				else
-				{
-				    NSLogVerbose(@"Handling device type: %d", AMDeviceGetInterfaceType(info->dev));
-				    handle_device(info->dev);
-				}
+        if (no_wifi && AMDeviceGetInterfaceType(info->dev) == 2)
+                {
+                    NSLogVerbose(@"Skipping wifi device (type: %d)", AMDeviceGetInterfaceType(info->dev));
+                }
+                else
+                {
+                    NSLogVerbose(@"Handling device type: %d", AMDeviceGetInterfaceType(info->dev));
+                    handle_device(info->dev);
+                }
             } else if(best_device_match == NULL) {
-				NSLogVerbose(@"Best device match: %d", AMDeviceGetInterfaceType(info->dev));
+                NSLogVerbose(@"Best device match: %d", AMDeviceGetInterfaceType(info->dev));
                 best_device_match = info->dev;
                 CFRetain(best_device_match);
             }
@@ -1661,9 +1713,11 @@ void device_callback(struct am_device_notification_callback_info *info, void *ar
 }
 
 void timeout_callback(CFRunLoopTimerRef timer, void *info) {
-    if ((!found_device) && (!detect_only))  {
+    if (found_device && (!detect_only)) {
+        return;
+    } else if ((!found_device) && (!detect_only))  {
         if(best_device_match != NULL) {
-			NSLogVerbose(@"Handling best device match.");
+            NSLogVerbose(@"Handling best device match.");
             handle_device(best_device_match);
 
             CFRelease(best_device_match);
@@ -1686,8 +1740,8 @@ void timeout_callback(CFRunLoopTimerRef timer, void *info) {
           int mypid = getpid();
           if ((parent != 0) && (parent == mypid) && (child != 0))
           {
-			  NSLogVerbose(@"Timeout. Killing child (%d) tree.", child);
-			  kill_ptree(child, SIGHUP);
+              NSLogVerbose(@"Timeout. Killing child (%d) tree.", child);
+              kill_ptree(child, SIGHUP);
           }
       }
       exit(0);
@@ -1734,12 +1788,12 @@ void show_version() {
 
 int main(int argc, char *argv[]) {
 
-	// create a UUID for tmp purposes
+    // create a UUID for tmp purposes
     CFUUIDRef uuid = CFUUIDCreate(NULL);
     CFStringRef str = CFUUIDCreateString(NULL, uuid);
     CFRelease(uuid);
     tmpUUID = [(NSString*)str autorelease];
-	
+
     static struct option longopts[] = {
         { "debug", no_argument, NULL, 'd' },
         { "id", required_argument, NULL, 'i' },
