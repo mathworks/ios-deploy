@@ -186,23 +186,14 @@ Boolean path_exists(CFTypeRef path) {
 
 CFStringRef find_path(CFStringRef rootPath, CFStringRef namePattern, CFStringRef expression) {
     FILE *fpipe = NULL;
-    CFStringRef quotedRootPath = rootPath;
     CFStringRef cf_command;
     CFRange slashLocation;
 
-    if (CFStringGetCharacterAtIndex(rootPath, 0) != '`') {
-        quotedRootPath = CFStringCreateWithFormat(NULL, NULL, CFSTR("'%@'"), rootPath);
-    }
-
     slashLocation = CFStringFind(namePattern, CFSTR("/"), 0);
     if (slashLocation.location == kCFNotFound) {
-        cf_command = CFStringCreateWithFormat(NULL, NULL, CFSTR("find %@ -name '%@' %@ 2>/dev/null | sort | tail -n 1"), quotedRootPath, namePattern, expression);
+        cf_command = CFStringCreateWithFormat(NULL, NULL, CFSTR("find %@ -name '%@' %@ 2>/dev/null | sort | tail -n 1"), rootPath, namePattern, expression);
     } else {
-        cf_command = CFStringCreateWithFormat(NULL, NULL, CFSTR("find %@ -path '%@' %@ 2>/dev/null | sort | tail -n 1"), quotedRootPath, namePattern, expression);
-    }
-
-    if (quotedRootPath != rootPath) {
-        CFRelease(quotedRootPath);
+        cf_command = CFStringCreateWithFormat(NULL, NULL, CFSTR("find %@ -path '%@' %@ 2>/dev/null | sort | tail -n 1"), rootPath, namePattern, expression);
     }
 
     char command[1024] = { '\0' };
@@ -338,6 +329,13 @@ const CFStringRef get_device_hardware_name(const AMDeviceRef device) {
     GET_FRIENDLY_MODEL_NAME(model, "J82AP",  "iPad Air 2 (GSM)")
     GET_FRIENDLY_MODEL_NAME(model, "J83AP",  "iPad Air 2 (CDMA)")
 
+    // iPad Pro
+
+    GET_FRIENDLY_MODEL_NAME(model, "J98aAP",  "iPad Pro (12.9\")")
+    GET_FRIENDLY_MODEL_NAME(model, "J98aAP",  "iPad Pro (12.9\")")
+    GET_FRIENDLY_MODEL_NAME(model, "J127AP",  "iPad Pro (9.7\")")
+    GET_FRIENDLY_MODEL_NAME(model, "J128AP",  "iPad Pro (9.7\")")
+
     // iPad Mini
 
     GET_FRIENDLY_MODEL_NAME(model, "P105AP", "iPad mini")
@@ -355,6 +353,7 @@ const CFStringRef get_device_hardware_name(const AMDeviceRef device) {
     GET_FRIENDLY_MODEL_NAME(model, "K66AP",  "Apple TV 2G")
     GET_FRIENDLY_MODEL_NAME(model, "J33AP",  "Apple TV 3G")
     GET_FRIENDLY_MODEL_NAME(model, "J33IAP", "Apple TV 3.1G")
+    GET_FRIENDLY_MODEL_NAME(model, "J42dAP", "Apple TV 4G")
 
     // iPhone
 
@@ -378,6 +377,13 @@ const CFStringRef get_device_hardware_name(const AMDeviceRef device) {
     GET_FRIENDLY_MODEL_NAME(model, "N66AP", "iPhone 6s Plus")
     GET_FRIENDLY_MODEL_NAME(model, "N66mAP", "iPhone 6s Plus")
     GET_FRIENDLY_MODEL_NAME(model, "N69AP", "iPhone SE")
+    GET_FRIENDLY_MODEL_NAME(model, "N69uAP", "iPhone SE")
+
+    GET_FRIENDLY_MODEL_NAME(model, "D10AP", "iPhone 7")
+    GET_FRIENDLY_MODEL_NAME(model, "D101AP", "iPhone 7")
+    GET_FRIENDLY_MODEL_NAME(model, "D11AP", "iPhone 7 Plus")
+    GET_FRIENDLY_MODEL_NAME(model, "D111AP", "iPhone 7 Plus")
+    
 
     return model;
 }
@@ -458,25 +464,39 @@ CFMutableArrayRef get_device_product_version_parts(AMDeviceRef device) {
 CFStringRef copy_device_support_path(AMDeviceRef device) {
     CFStringRef version = NULL;
     CFStringRef build = AMDeviceCopyValue(device, 0, CFSTR("BuildVersion"));
+    CFStringRef deviceClass = AMDeviceCopyValue(device, 0, CFSTR("DeviceClass"));
     CFStringRef path = NULL;
     CFMutableArrayRef version_parts = get_device_product_version_parts(device);
 
+    NSLogVerbose(@"Device Class: %@", deviceClass);
+    NSLogVerbose(@"build: %@", build);
+
+    CFStringRef deviceClassPath_platform;
+    CFStringRef deviceClassPath_alt;
+    if (CFStringCompare(CFSTR("AppleTV"), deviceClass, 0) == kCFCompareEqualTo) {
+      deviceClassPath_platform = CFSTR("Platforms/AppleTVOS.platform/DeviceSupport");
+      deviceClassPath_alt = CFSTR("tvOS\\ DeviceSupport");
+    } else {
+      deviceClassPath_platform = CFSTR("Platforms/iPhoneOS.platform/DeviceSupport");
+      deviceClassPath_alt = CFSTR("iOS\\ DeviceSupport");
+    }
     while (CFArrayGetCount(version_parts) > 0) {
         version = CFStringCreateByCombiningStrings(NULL, version_parts, CFSTR("."));
+        NSLogVerbose(@"version: %@", version);
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("iOS DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)"), version, build));
+            path = copy_xcode_path_for(deviceClassPath_alt, CFStringCreateWithFormat(NULL, NULL, CFSTR("%@\\ \\(%@\\)"), version, build));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)"), version, build));
+            path = copy_xcode_path_for(deviceClassPath_platform, CFStringCreateWithFormat(NULL, NULL, CFSTR("%@\\ \\(%@\\)"), version, build));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (*)"), version));
+            path = copy_xcode_path_for(deviceClassPath_platform, CFStringCreateWithFormat(NULL, NULL, CFSTR("%@\\ \\(*\\)"), version));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), version);
+            path = copy_xcode_path_for(deviceClassPath_platform, version);
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport/Latest"), CFSTR(""));
+            path = copy_xcode_path_for(CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), deviceClassPath_platform, CFSTR("/Latest")), CFSTR(""));
         }
         CFRelease(version);
         if (path != NULL) {
@@ -487,7 +507,7 @@ CFStringRef copy_device_support_path(AMDeviceRef device) {
 
     CFRelease(version_parts);
     CFRelease(build);
-
+    CFRelease(deviceClass);
     if (path == NULL)
         on_error(@"Unable to locate DeviceSupport directory. This probably means you don't have Xcode installed, you will need to launch the app manually and logging output will not be shown!");
 
@@ -497,25 +517,40 @@ CFStringRef copy_device_support_path(AMDeviceRef device) {
 CFStringRef copy_developer_disk_image_path(AMDeviceRef device) {
     CFStringRef version = NULL;
     CFStringRef build = AMDeviceCopyValue(device, 0, CFSTR("BuildVersion"));
+    CFStringRef deviceClass = AMDeviceCopyValue(device, 0, CFSTR("DeviceClass"));
     CFStringRef path = NULL;
     CFMutableArrayRef version_parts = get_device_product_version_parts(device);
 
+    NSLogVerbose(@"Device Class: %@", deviceClass);
+    NSLogVerbose(@"build: %@", build);
+    CFStringRef deviceClassPath_platform;
+    CFStringRef deviceClassPath_alt;
+    if (CFStringCompare(CFSTR("AppleTV"), deviceClass, 0) == kCFCompareEqualTo) {
+      deviceClassPath_platform = CFSTR("Platforms/AppleTVOS.platform/DeviceSupport");
+      deviceClassPath_alt = CFSTR("tvOS\\ DeviceSupport");
+    } else {
+      deviceClassPath_platform = CFSTR("Platforms/iPhoneOS.platform/DeviceSupport");
+      deviceClassPath_alt = CFSTR("iOS\\ DeviceSupport");
+    }
+    // path = getPathForTVOS(device);
     while (CFArrayGetCount(version_parts) > 0) {
         version = CFStringCreateByCombiningStrings(NULL, version_parts, CFSTR("."));
-    if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("iOS DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)/DeveloperDiskImage.dmg"), version, build));
+        NSLogVerbose(@"version: %@", version);
+
+        if (path == NULL) {
+            path = copy_xcode_path_for(CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@\\ \\(%@\\)"), deviceClassPath_alt, version, build), CFSTR("DeveloperDiskImage.dmg"));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)/DeveloperDiskImage.dmg"), version, build));
-    }
-        if (path == NULL) {
-             path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("*/%@ (*)/DeveloperDiskImage.dmg"), version));
+            path = copy_xcode_path_for(deviceClassPath_platform, CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)/DeveloperDiskImage.dmg"), version, build));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport"), CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/DeveloperDiskImage.dmg"), version));
+            path = copy_xcode_path_for(CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@\\ \\(*\\)"), deviceClassPath_platform, version), CFSTR("DeveloperDiskImage.dmg"));
         }
         if (path == NULL) {
-            path = copy_xcode_path_for(CFSTR("Platforms/iPhoneOS.platform/DeviceSupport/Latest"), CFSTR("DeveloperDiskImage.dmg"));
+            path = copy_xcode_path_for(deviceClassPath_platform, CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/DeveloperDiskImage.dmg"), version));
+        }
+        if (path == NULL) {
+            path = copy_xcode_path_for(CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/Latest"), deviceClassPath_platform), CFSTR("/DeveloperDiskImage.dmg"));
         }
         CFRelease(version);
         if (path != NULL) {
@@ -526,6 +561,7 @@ CFStringRef copy_developer_disk_image_path(AMDeviceRef device) {
 
     CFRelease(version_parts);
     CFRelease(build);
+    CFRelease(deviceClass);
     if (path == NULL)
         on_error(@"Unable to locate DeveloperDiskImage.dmg. This probably means you don't have Xcode installed, you will need to launch the app manually and logging output will not be shown!");
 
@@ -656,7 +692,7 @@ CFStringRef copy_disk_app_identifier(CFURLRef disk_app_url) {
     CFURLRef plist_url = CFURLCreateCopyAppendingPathComponent(NULL, disk_app_url, CFSTR("Info.plist"), false);
     CFReadStreamRef plist_stream = CFReadStreamCreateWithFile(NULL, plist_url);
     if (!CFReadStreamOpen(plist_stream)) {
-      on_error(@"Cannot read Info.plist file: %@", plist_url);
+        on_error(@"Cannot read Info.plist file: %@", plist_url);
     }
 
     CFPropertyListRef plist = CFPropertyListCreateWithStream(NULL, plist_stream, 0, kCFPropertyListImmutable, NULL, NULL);
@@ -1693,7 +1729,7 @@ void device_callback(struct am_device_notification_callback_info *info, void *ar
     switch (info->msg) {
         case ADNCI_MSG_CONNECTED:
             if(device_id != NULL || !debug || AMDeviceGetInterfaceType(info->dev) != 2) {
-        if (no_wifi && AMDeviceGetInterfaceType(info->dev) == 2)
+                if (no_wifi && AMDeviceGetInterfaceType(info->dev) == 2)
                 {
                     NSLogVerbose(@"Skipping wifi device (type: %d)", AMDeviceGetInterfaceType(info->dev));
                 }
